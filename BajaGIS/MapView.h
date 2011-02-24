@@ -1,7 +1,7 @@
 #ifndef BAJAGIS_MAPVIEW_H
 #define BAJAGIS_MAPVIEW_H
 
-#include "Shapes.h"
+#include "Shape.h"
 
 #include <QtGui/QGraphicsView>
 #include <QtGui/QMouseEvent>

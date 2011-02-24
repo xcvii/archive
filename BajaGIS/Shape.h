@@ -27,5 +27,5 @@ template <> struct shape <Polygon>
 
 }
 
-#endif // BAJAGIS_SHAPES_H
+#endif // BAJAGIS_SHAPE_H
 

@@ -5,8 +5,8 @@ TEMPLATE = app
 
 SOURCES += main.cc \
            MapView.cc \
-           Shapes.cc
+           Shape.cc
 
 HEADERS   += MapView.h \
-             Shapes.h
+             Shape.h
 
