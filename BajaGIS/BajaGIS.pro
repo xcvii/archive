@@ -3,11 +3,10 @@ QT       += core gui sql
 TARGET = BajaGIS
 TEMPLATE = app
 
-SOURCES += main.cc\
-           BGViewport.cc
+SOURCES += main.cc \
+           MapView.cc \
+           Shapes.cc
 
-HEADERS   += BGViewport.h
-
-#HEADERS  += mainwindow.h
-#FORMS    += mainwindow.ui
+HEADERS   += MapView.h \
+             Shapes.h
 
