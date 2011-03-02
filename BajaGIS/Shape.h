@@ -1,31 +1,68 @@
 #ifndef BAJAGIS_SHAPE_H
 #define BAJAGIS_SHAPE_H
 
-#include <QtGui/QGraphicsItem>
+#include <QGraphicsItem>
+#include <QGraphicsPathItem>
+#include <QGraphicsPolygonItem>
 
 namespace BajaGIS {
 
-enum Shape { Point, Polyline, Polygon };
+enum ShapeType { Point, Polyline, Polygon };
 
-class PointShape : public QGraphicsItem
-{ };
+class Shape
+{
+  public:
+    virtual ~Shape () = 0;
+    virtual ShapeType shapeType () const = 0;
+}; // class Shape
 
-class PolylineShape : public QGraphicsItem
-{ };
 
-class PolygonShape : public QGraphicsItem
-{ };
+class PointShape
+  : public QGraphicsItem
+  , public Shape
+{
+  private:
+    qreal _x, _y;
 
-template <Shape> struct shape
-{ typedef PointShape type; };
+  public:
+    PointShape (qreal x, qreal y);
+    ~PointShape ();
 
-template <> struct shape <Polyline>
-{ typedef PolylineShape type; };
+    inline ShapeType shapeType () const { return Point; }
 
-template <> struct shape <Polygon>
-{ typedef PolygonShape type; };
+    QRectF boundingRect () const;
+    void paint (QPainter *painter, const QStyleOptionGraphicsItem *option,
+        QWidget *widget = 0);
+}; // class PointShape
 
-}
+
+class PolylineShape
+  : public QGraphicsPathItem
+  , public Shape
+{
+  public:
+    PolylineShape (qreal x, qreal y);
+    ~PolylineShape ();
+
+    void addPoint (qreal x, qreal y);
+
+    inline ShapeType shapeType () const { return Polyline; }
+}; // class PolylineShape
+
+
+class PolygonShape
+  : public QGraphicsPolygonItem
+  , public Shape
+{
+  public:
+    PolygonShape (qreal x, qreal y);
+    ~PolygonShape ();
+
+    void addPoint (qreal x, qreal y);
+
+    inline ShapeType shapeType () const { return Polygon; }
+}; // class PolygonShape
+
+} // namespace BajaGIS
 
 #endif // BAJAGIS_SHAPE_H
-

@@ -1,11 +1,9 @@
 #ifndef BAJAGIS_MAPVIEW_H
 #define BAJAGIS_MAPVIEW_H
 
-#include "Shape.h"
+#include "MapScene.h"
 
-#include <QtGui/QGraphicsView>
-#include <QtGui/QMouseEvent>
-#include <QtGui/QWheelEvent>
+#include <QGraphicsView>
 
 namespace BajaGIS {
 
@@ -14,21 +12,13 @@ class MapView : public QGraphicsView
   Q_OBJECT
 
   public:
-    MapView (QGraphicsScene *scene)
-      : QGraphicsView (scene)
-    { _init (); }
+    MapView (MapScene *scene, QWidget *parent = 0);
 
   protected:
-    void mousePressEvent (QMouseEvent *event);
-    void wheelEvent (QWheelEvent *event);
-
-  private:
-    BajaGIS::Shape _drawingMode;
-    void _init ();
+    virtual void wheelEvent (QWheelEvent *event);
 
 }; // class MapView
 
-}
+} // namespace BajaGIS
 
 #endif // BAJAGIS_MAPVIEW_H
-

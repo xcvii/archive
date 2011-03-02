@@ -1,34 +1,19 @@
 #include "MapView.h"
 
-#include <QPointF>
-
-void
-BajaGIS::MapView::mousePressEvent (QMouseEvent *event)
-{
-  QPointF point;
-  switch (event->button ())
-  {
-    case Qt::LeftButton:
-      point = mapToScene (event->x (), event->y ());
-      scene()->addEllipse (point.x () - 2, point.y () - 2, 4, 4);
-      break;
-    case Qt::RightButton:
-    case Qt::MidButton:
-    default:
-      break;
-  }
-}
+BajaGIS::MapView::MapView (BajaGIS::MapScene *scene, QWidget *parent)
+  : QGraphicsView (scene, parent)
+{ }
 
 void
 BajaGIS::MapView::wheelEvent (QWheelEvent *event)
 {
-  if (Qt::ControlModifier == event->modifiers ())
+  if (Qt::ControlModifier & event->modifiers ())
   {
     if (0 < event->delta ())
     {
       scale (1.2, 1.2);
     }
-    else
+    else if (0 > event->delta ())
     {
       scale (0.8, 0.8);
     }
@@ -37,13 +22,5 @@ BajaGIS::MapView::wheelEvent (QWheelEvent *event)
   {
     QGraphicsView::wheelEvent (event);
   }
-}
-
-void
-BajaGIS::MapView::_init ()
-{
-  setCursor (Qt::CrossCursor);
-
-  _drawingMode = Point;
 }
 
