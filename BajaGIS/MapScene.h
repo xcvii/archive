@@ -19,16 +19,17 @@ class MapScene : public QGraphicsScene
   public slots:
     void setMode (Mode mode) { _mode = mode; }
     void setShape (ShapeType shape) { _shapeMode = shape; }
+    void endCurrentEdit () { _currentShape = 0; }
 
   protected:
+    void focusOutEvent (QFocusEvent *event);
+    void keyPressEvent (QKeyEvent *event);
     void mousePressEvent (QGraphicsSceneMouseEvent *event);
-    void mouseMoveEvent (QGraphicsSceneMouseEvent *event);
 
   private:
     Mode _mode;
     ShapeType _shapeMode;
     Shape *_currentShape;
-    //QGraphicsLineItem _dummyLine;
 
     void _insert (qreal x, qreal y);
 

@@ -7,7 +7,9 @@
 
 namespace BajaGIS {
 
+
 enum ShapeType { Point, Polyline, Polygon };
+
 
 class Shape
 {
@@ -16,14 +18,13 @@ class Shape
     virtual ShapeType shapeType () const = 0;
 }; // class Shape
 
+typedef QSharedPointer <Shape> ShapePtr;
+
 
 class PointShape
   : public QGraphicsItem
   , public Shape
 {
-  private:
-    qreal _x, _y;
-
   public:
     PointShape (qreal x, qreal y);
     ~PointShape ();
@@ -45,6 +46,7 @@ class PolylineShape
     ~PolylineShape ();
 
     void addPoint (qreal x, qreal y);
+    void close ();
 
     inline ShapeType shapeType () const { return Polyline; }
 }; // class PolylineShape
@@ -62,6 +64,7 @@ class PolygonShape
 
     inline ShapeType shapeType () const { return Polygon; }
 }; // class PolygonShape
+
 
 } // namespace BajaGIS
 

@@ -10,6 +10,38 @@ BajaGIS::MapScene::MapScene (QRectF const &rect, QObject *parent)
   
 
 void
+BajaGIS::MapScene::focusOutEvent (QFocusEvent *event)
+{
+  QGraphicsScene::focusOutEvent (event);
+
+  endCurrentEdit ();
+}
+
+void
+BajaGIS::MapScene::keyPressEvent (QKeyEvent *event)
+{
+  QGraphicsScene::keyPressEvent (event);
+
+  switch (event->key ())
+  {
+    case Qt::Key_Escape:
+      endCurrentEdit ();
+      break;
+
+    case Qt::Key_C:
+      if (_currentShape && Polyline == _currentShape->shapeType ())
+      {
+        dynamic_cast <PolylineShape *> (_currentShape)->close ();
+        endCurrentEdit ();
+      }
+      break;
+
+    default:
+      ;
+  }
+}
+
+void
 BajaGIS::MapScene::mousePressEvent (QGraphicsSceneMouseEvent *event)
 {
   QPointF point = event->scenePos ();
@@ -34,23 +66,6 @@ BajaGIS::MapScene::mousePressEvent (QGraphicsSceneMouseEvent *event)
 }
 
 void
-BajaGIS::MapScene::mouseMoveEvent (QGraphicsSceneMouseEvent *event)
-{
-  if (_currentShape)
-  {
-    //if (!_dummyLine)
-    //{
-    //  _dummyLine = new Q
-    //}
-    //else
-    //{
-    //}
-  }
-
-  QGraphicsScene::mouseMoveEvent (event);
-}
-
-void
 BajaGIS::MapScene::_insert (qreal x, qreal y)
 {
   if (_currentShape)
@@ -71,12 +86,13 @@ BajaGIS::MapScene::_insert (qreal x, qreal y)
         ;
     }
   }
-  else
+  else // !_currentShape
   {
     switch (_shapeMode)
     {
       case Point:
-        addItem (new PointShape (x, y));
+        _currentShape = new PointShape (x, y);
+        addItem (dynamic_cast <PointShape *> (_currentShape));
 
         break;
       case Polyline:
@@ -92,6 +108,8 @@ BajaGIS::MapScene::_insert (qreal x, qreal y)
       default:
         ;
     }
-  }
+
+    dynamic_cast <QGraphicsItem *> (_currentShape) ->setFocus ();
+  } // if (_currentShape)
 }
 

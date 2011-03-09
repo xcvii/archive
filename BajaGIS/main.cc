@@ -9,7 +9,7 @@ int main (int argc, char **argv)
 
   QApplication app (argc, argv);
 
-  MapScene scene (QRectF (-500, -500, 500, 500));
+  MapScene scene (QRectF (0, 0, 1000, 1000));
   scene.setMode (MapScene::InsertMode);
   scene.setShape (Polyline);
 

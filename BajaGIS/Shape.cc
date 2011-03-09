@@ -12,9 +12,9 @@ BajaGIS::Shape::~Shape ()
 // class PointShape
 
 BajaGIS::PointShape::PointShape (qreal x, qreal y)
-  : QGraphicsItem (0)
-  , _x (x), _y (y)
-{ }
+{
+  setPos (mapToParent (QPointF (x, y)));
+}
 
 BajaGIS::PointShape::~PointShape ()
 { }
@@ -22,7 +22,7 @@ BajaGIS::PointShape::~PointShape ()
 QRectF
 BajaGIS::PointShape::boundingRect () const
 {
-  return QRectF (_x, _y, 0, 0);
+  return QRectF (0, 0, 0, 0);
 }
 
 void
@@ -32,14 +32,19 @@ BajaGIS::PointShape::paint (QPainter *painter,
   Q_UNUSED (option);
   Q_UNUSED (widget);
 
-  painter->drawPoint (_x, _y);
+  QPen pen (painter->pen ());
+  pen.setWidth (3);
+  pen.setCosmetic (true);
+  painter->setPen (pen);
+
+  painter->drawPoint (0, 0);
 }
 
 
 // class PolylineShape
 
 BajaGIS::PolylineShape::PolylineShape (qreal x, qreal y)
-  : QGraphicsPathItem (0)
+  : QGraphicsPathItem (QPainterPath (QPointF (x, y)))
 {
   QPainterPath p = path ();
   p.moveTo (x, y);
@@ -54,6 +59,14 @@ BajaGIS::PolylineShape::addPoint (qreal x, qreal y)
 {
   QPainterPath p = path ();
   p.lineTo (x, y);
+  setPath (p);
+}
+
+void
+BajaGIS::PolylineShape::close ()
+{
+  QPainterPath p = path ();
+  p.closeSubpath ();
   setPath (p);
 }
 
