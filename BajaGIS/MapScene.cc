@@ -41,6 +41,13 @@ BajaGIS::MapScene::keyPressEvent (QKeyEvent *event)
   }
 }
 
+#include <QtDebug>
+void
+BajaGIS::MapScene::mouseMoveEvent (QGraphicsSceneMouseEvent *event)
+{
+  QGraphicsScene::mouseMoveEvent (event);
+}
+
 void
 BajaGIS::MapScene::mousePressEvent (QGraphicsSceneMouseEvent *event)
 {
@@ -91,8 +98,7 @@ BajaGIS::MapScene::_insert (qreal x, qreal y)
     switch (_shapeMode)
     {
       case Point:
-        _currentShape = new PointShape (x, y);
-        addItem (dynamic_cast <PointShape *> (_currentShape));
+        addItem (new PointShape (x, y));
 
         break;
       case Polyline:
@@ -108,8 +114,6 @@ BajaGIS::MapScene::_insert (qreal x, qreal y)
       default:
         ;
     }
-
-    dynamic_cast <QGraphicsItem *> (_currentShape) ->setFocus ();
   } // if (_currentShape)
 }
 

@@ -24,6 +24,7 @@ class MapScene : public QGraphicsScene
   protected:
     void focusOutEvent (QFocusEvent *event);
     void keyPressEvent (QKeyEvent *event);
+    void mouseMoveEvent (QGraphicsSceneMouseEvent *event);
     void mousePressEvent (QGraphicsSceneMouseEvent *event);
 
   private:

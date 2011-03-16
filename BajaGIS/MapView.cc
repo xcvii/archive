@@ -2,7 +2,8 @@
 
 BajaGIS::MapView::MapView (BajaGIS::MapScene *scene, QWidget *parent)
   : QGraphicsView (scene, parent)
-{ }
+{
+}
 
 void
 BajaGIS::MapView::wheelEvent (QWheelEvent *event)

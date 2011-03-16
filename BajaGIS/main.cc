@@ -11,7 +11,7 @@ int main (int argc, char **argv)
 
   MapScene scene (QRectF (0, 0, 1000, 1000));
   scene.setMode (MapScene::InsertMode);
-  scene.setShape (Polyline);
+  scene.setShape (Point);
 
   MapView view (&scene);
   view.setRenderHint (QPainter::Antialiasing);

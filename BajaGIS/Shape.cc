@@ -1,6 +1,7 @@
 #include "Shape.h"
 
 #include <QPainter>
+#include <QCursor>
 
 
 // class Shape
@@ -14,6 +15,7 @@ BajaGIS::Shape::~Shape ()
 BajaGIS::PointShape::PointShape (qreal x, qreal y)
 {
   setPos (mapToParent (QPointF (x, y)));
+  setCursor (Qt::CrossCursor);
 }
 
 BajaGIS::PointShape::~PointShape ()
