@@ -11,7 +11,7 @@ int main (int argc, char **argv)
 
   MapScene scene (QRectF (0, 0, 1000, 1000));
   scene.setMode (MapScene::InsertMode);
-  scene.setShape (Point);
+  scene.setShape (Polygon);
 
   MapView view (&scene);
   view.setRenderHint (QPainter::Antialiasing);
