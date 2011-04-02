@@ -7,6 +7,7 @@ import Debug.Trace
 
 import Control.Applicative ((<$>), (<*>))
 import Control.Monad (replicateM)
+import Data.List (sort)
 import Data.Maybe (fromMaybe)
 import GHC.Real ((%))
 
@@ -20,12 +21,13 @@ import AutoGRef.TiffInfo
 
 data Tiff = Tiff {
     tiffInfo :: TiffInfo
+  , strips :: [BSL.ByteString]
 }
   deriving (Show)
 
 instance Binary Tiff where
   get = do
-    header <- getTiffHeader
+    header <- lookAhead $ getTiffHeader
 
     let byteOrder = if tiffHeaderByteOrder header == tiffLE then LE else BE
     let fdiOffset = fromIntegral $ tiffHeaderFdiOffset header
@@ -34,8 +36,11 @@ instance Binary Tiff where
 
     let info = foldr addField defaultTiffInfo fields
 
+    let stripLocations = sort $ zip (stripOffsets info) (stripByteCounts info)
+
     return Tiff {
         tiffInfo = info
+      , strips = []
     }
 
   put = undefined
