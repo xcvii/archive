@@ -1,21 +1,28 @@
 module AutoGRef.TiffInfo
   ( TiffInfo (..)
   , defaultTiffInfo
+  , Compression (..)
+  , ResolutionUnit (..)
+  , PMI (..)
   )
   where
 
 data TiffInfo = TiffInfo {
-    bitsPerSample :: [Int]             -- 0x102
-  , colorMap :: Maybe ColorMap         -- 0x140
-  , compression :: Compression         -- 0x103
-  , resolutionUnit :: ResolutionUnit   -- 0x128
-  , samplesPerPixel :: Int             -- 0x115
+    bitsPerSample :: [Integer]
+  , colorMap :: Maybe ColorMap
+  , compression :: Compression
+  , resolutionUnit :: ResolutionUnit
+  , samplesPerPixel :: Int
 
-  , imageLength :: Int                 -- 0x101
-  , imageWidth :: Int                  -- 0x100
-  , photoMetricInterpretation :: PMI   -- 0x106
-  , xResolution :: Rational            -- 0x11a
-  , yResolution :: Rational            -- 0x11b
+  , imageLength :: Integer
+  , imageWidth :: Integer
+  , photoMetricInterpretation :: PMI
+  , xResolution :: Rational
+  , yResolution :: Rational
+
+  , rowsPerStrip :: Integer
+  , stripByteCounts :: [Integer]
+  , stripOffsets :: [Integer]
 }
   deriving (Show)
 
@@ -26,11 +33,16 @@ defaultTiffInfo = TiffInfo {
   , resolutionUnit = Inch
   , samplesPerPixel = 1
 
-  , imageLength = error ""
-  , imageWidth = error ""
-  , photoMetricInterpretation = error ""
-  , xResolution = error ""
-  , yResolution = error ""
+  , imageLength = error "no default imageLength"
+  , imageWidth = error "no default imageWidth"
+  , photoMetricInterpretation =
+          error "no default photoMetricInterpretation"
+  , xResolution = error "no default xResolution"
+  , yResolution = error "no default yResolution"
+
+  , rowsPerStrip = 2^32 - 1
+  , stripByteCounts = error "no default stripByteCounts"
+  , stripOffsets = error "no default stripOffsets"
 }
 
 data PMI =
