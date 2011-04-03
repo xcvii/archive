@@ -2,7 +2,15 @@ Projects written as assignments for my various geoinformatics-related
 courses. When finished, the following applications should be included:
 
   * BajaGIS:  A very basic geographic information system supporting mainly
-              layered 2D vector graphics editing.
+              layered 2D vector graphics editing. It is (being) written in
+              C++/Qt
+
+  * AutoGRef: An automatic geo-referencing application which takes two TIFF
+              images of the same territory as input -- one geo-referenced,
+              the other not -- and tries to geo-reference the second image
+              based on the first using a chip-matching technique. Part of
+              the task is to write a TIFF parser/renderer from scratch.
+              This one is (being) written in Haskell.
 
   * ... (tbc)
 
