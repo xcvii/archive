@@ -3,25 +3,26 @@ module AutoGRef.Tiff
   )
   where
 
-import Debug.Trace
+import Data.Binary
+import Data.Binary.Get
+import Data.Binary.Put
+import qualified Data.ByteString as BS
+import qualified Data.ByteString.Lazy as BSL
 
 import Control.Applicative ((<$>), (<*>))
 import Control.Monad (replicateM)
+import Data.Function (on)
 import Data.List (sort)
 import Data.Maybe (fromMaybe)
 import GHC.Real ((%))
 
-import qualified Data.ByteString as BS
-import qualified Data.ByteString.Lazy as BSL
-import Data.Binary
-import Data.Binary.Get
---import Data.Binary.Put
-
 import AutoGRef.TiffInfo
+
+import Debug.Trace
 
 data Tiff = Tiff {
     tiffInfo :: TiffInfo
-  , strips :: [BSL.ByteString]
+  , tiffStrips :: [(Integer, BSL.ByteString)]
 }
   deriving (Show)
 
@@ -31,17 +32,21 @@ instance Binary Tiff where
 
     let byteOrder = if tiffHeaderByteOrder header == tiffLE then LE else BE
     let fdiOffset = fromIntegral $ tiffHeaderFdiOffset header
-
     fields <- lookAhead $ getTiffFields byteOrder fdiOffset
 
     let info = foldr addField defaultTiffInfo fields
+    let stripSorted = sort $ flip zip [1..] $ zip (stripOffsets info)
+                                                  (stripByteCounts info)
 
-    let stripLocations = sort $ zip (stripOffsets info) (stripByteCounts info)
+    let stripSortedOffsets = map (fst . fst) stripSorted
+    let stripSortedByteCounts = map (snd . fst) stripSorted
+    let stripSortedOrdinals = map snd stripSorted
 
-    return Tiff {
-        tiffInfo = info
-      , strips = []
-    }
+    strips <- mapM (uncurry $ getStrip byteOrder) $
+                    zip stripSortedOffsets stripSortedByteCounts
+
+    return Tiff { tiffInfo = info
+                , tiffStrips = zip stripSortedOrdinals strips }
 
   put = undefined
 
@@ -53,7 +58,7 @@ data TiffField = TiffField {
 
 data FieldValue =
     Byte     { fromByte :: Word8 }
-  | Ascii    { fromChar :: Word8 }
+  | Ascii    { fromAscii :: Word8 }
   | Short    { fromShort :: Word16 }
   | Long     { fromLong :: Word32 }
   | Rational { numerator :: Word32
@@ -154,91 +159,87 @@ getTiffFields byteOrder fdiOffset = do
 
     getTiffFdiEntry byteOrder
 
-    return TiffField {
-        fieldTag = tiffFdiEntryTag fdiEntry
-      , fieldValues = values
-    }
+    return TiffField { fieldTag = tiffFdiEntryTag fdiEntry
+                     , fieldValues = values }
 
   where typeId = fromMaybe 0 . flip lookup typeIds
 
 addField :: TiffField -> TiffInfo -> TiffInfo
 addField field info
 
-  | tag == tagId "BitsPerSample" =
-      info { bitsPerSample =
-              map (fromIntegral . fromShort) $ fieldValues field }
+  | tag == tagId "BitsPerSample" = info {
+      bitsPerSample = map (fromIntegral . fromShort) values }
 
   | tag == tagId "ColorMap" = info
 
-  | tag == tagId "Compression" =
-      info { compression = case fromShort . head $ fieldValues field of
+  | tag == tagId "Compression" = info {
+      compression = case fromShort $ head values of
                              t | t == 1 -> NoCompression
                                | t == 2 -> ModifiedHuffman
-                               | t == 32773 -> PackBits }
+                               | t == 32773 -> PackBits    }
 
-  | tag == tagId "ImageLength" =
-      info { imageLength = case head $ fieldValues field of
-                             Short s -> fromIntegral s
-                             Long l -> fromIntegral l }
+  | tag == tagId "ImageLength" = info {
+      imageLength = case head values of Short s -> fromIntegral s
+                                        Long l -> fromIntegral l  }
 
-  | tag == tagId "ImageWidth" =
-      info { imageWidth = case head $ fieldValues field of
-                            Short s -> fromIntegral s
-                            Long l -> fromIntegral l }
+  | tag == tagId "ImageWidth" = info {
+      imageWidth = case head values of Short s -> fromIntegral s
+                                       Long l -> fromIntegral l  }
 
-  | tag == tagId "PhotometricInterpretation" =
-      info { photoMetricInterpretation =
-              case fromShort . head $ fieldValues field of
-                           t | t == 0 -> WhiteIsZero
-                             | t == 1 -> BlackIsZero
-                             | t == 2 -> RGB
-                             | t == 3 -> Palette
-                             | t == 4 -> TransparencyMask }
+  | tag == tagId "PhotometricInterpretation" = info {
+      photoMetricInterpretation = case fromShort $ head values of
+                                   t | t == 0 -> WhiteIsZero
+                                     | t == 1 -> BlackIsZero
+                                     | t == 2 -> RGB
+                                     | t == 3 -> Palette
+                                     | t == 4 -> TransparencyMask }
 
-  | tag == tagId "ResolutionUnit" =
-      info { resolutionUnit =
-              case fromShort . head $ fieldValues field of
-                          t | t == 1 -> NoUnit
-                            | t == 2 -> Inch
-                            | t == 3 -> Centimeter }
+  | tag == tagId "ResolutionUnit" = info {
+      resolutionUnit = case fromShort $ head values of
+                                t | t == 1 -> NoUnit
+                                  | t == 2 -> Inch
+                                  | t == 3 -> Centimeter }
 
-  | tag == tagId "RowsPerStrip" =
-      info { rowsPerStrip = case head $ fieldValues field of
-                              Short s -> fromIntegral s
-                              Long l -> fromIntegral l }
+  | tag == tagId "RowsPerStrip" = info {
+      rowsPerStrip = case head values of Short s -> fromIntegral s
+                                         Long l -> fromIntegral l  }
 
-  | tag == tagId "SamplesPerPixel" =
-      info { samplesPerPixel =
-              fromIntegral . fromShort . head $ fieldValues field }
+  | tag == tagId "SamplesPerPixel" = info {
+      samplesPerPixel = fromIntegral . fromShort $ head values }
 
-  | tag == tagId "StripByteCounts" =
-      info { stripByteCounts =
-              case head $ fieldValues field of
-                  Short _ -> map (fromIntegral . fromShort) $ fieldValues field
-                  Long _ -> map (fromIntegral . fromLong) $ fieldValues field }
+  | tag == tagId "StripByteCounts" = info {
+      stripByteCounts = case head values of
+                          Short _ -> map (fromIntegral . fromShort) values
+                          Long _ -> map (fromIntegral . fromLong) values   }
 
-  | tag == tagId "StripOffsets" =
-      info { stripOffsets =
-              case head $ fieldValues field of
-                  Short _ -> map (fromIntegral . fromShort) $ fieldValues field
-                  Long _ -> map (fromIntegral . fromLong) $ fieldValues field }
+  | tag == tagId "StripOffsets" = info {
+      stripOffsets = case head values of
+                          Short _ -> map (fromIntegral . fromShort) values
+                          Long _ -> map (fromIntegral . fromLong) values   }
 
-  | tag == tagId "XResolution" =
-      info { xResolution = 
-              case head $ fieldValues field of
-                Rational {numerator = n, denominator = d}
-                  -> fromIntegral n % fromIntegral d }
+  | tag == tagId "XResolution" = info {
+      xResolution = case head values of
+                            Rational {numerator = n, denominator = d}
+                              -> fromIntegral n % fromIntegral d      }
 
-  | tag == tagId "YResolution" =
-      info { yResolution = 
-              case head $ fieldValues field of
-                Rational {numerator = n, denominator = d}
-                  -> fromIntegral n % fromIntegral d }
+  | tag == tagId "YResolution" = info {
+      yResolution = case head values of
+                            Rational {numerator = n, denominator = d}
+                              -> fromIntegral n % fromIntegral d      }
 
   | otherwise = info
 
   where tag = fieldTag field
         tagId = fromMaybe 0 . flip lookup tagIds
+        values = fieldValues field
+
+getStrip :: ByteOrder -> Integer -> Integer -> Get BSL.ByteString
+getStrip order from to = do
+  pos <- bytesRead >>= return . fromIntegral
+  skip $ (fromInteger from) - pos
+
+  getLazyByteString $ fromInteger to
+
 
 tagIds :: [(String, Word16)]
 tagIds =
