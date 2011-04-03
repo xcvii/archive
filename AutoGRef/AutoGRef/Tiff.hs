@@ -1,6 +1,7 @@
 module AutoGRef.Tiff
-  ( Tiff (..)
-  )
+  --( Tiff (..)
+  --, ByteOrder (..)
+  --)
   where
 
 import Data.Binary
@@ -21,7 +22,8 @@ import AutoGRef.TiffInfo
 import Debug.Trace
 
 data Tiff = Tiff {
-    tiffInfo :: TiffInfo
+    tiffByteOrder :: ByteOrder
+  , tiffInfo :: TiffInfo
   , tiffStrips :: [(Integer, BSL.ByteString)]
 }
   deriving (Show)
@@ -45,12 +47,34 @@ instance Binary Tiff where
     strips <- mapM (uncurry $ getStrip byteOrder) $
                     zip stripSortedOffsets stripSortedByteCounts
 
-    return Tiff { tiffInfo = info
+    return Tiff { tiffByteOrder = byteOrder
+                , tiffInfo = info
                 , tiffStrips = zip stripSortedOrdinals strips }
 
   put tiff = do
-    putWord16le tiffLE
-    putWord16le tiffMagic
+    let byteOrder = tiffByteOrder tiff
+    let info = tiffInfo tiff
+    let dataSize = sum $ stripByteCounts info
+
+    -- TIFF header
+    putWord16le $ if byteOrder == LE then tiffLE else tiffBE
+    putWord16 byteOrder tiffMagic
+    putWord32 byteOrder . fromIntegral $ 8 + dataSize
+
+    -- data strips
+    mapM_ putLazyByteString . snd . unzip $ tiffStrips tiff
+
+    -- FDI entry count
+    putWord16 byteOrder $ fromIntegral 13
+
+    -- BitsPerSample
+    putWord16 byteOrder (tagId "BitsPerSample")
+    putWord16 byteOrder (typeId "Short")
+    putWord32 byteOrder . fromIntegral . length $ bitsPerSample info
+    putWord32 byteOrder 0
+
+    where tagId = fromMaybe 0 . flip lookup tagIds
+          typeId = fromMaybe 0 . flip lookup typeIds
 
 data TiffField = TiffField {
     fieldTag :: Word16
@@ -78,7 +102,7 @@ typeIds =
   ]
 
 data ByteOrder = LE | BE
-  deriving (Show)
+  deriving (Eq, Show)
 
 tiffLE :: Word16
 tiffLE = 0x4949
@@ -96,6 +120,14 @@ getWord16 BE = getWord16be
 getWord32 :: ByteOrder -> Get Word32
 getWord32 LE = getWord32le
 getWord32 BE = getWord32be
+
+putWord16 :: ByteOrder -> Word16 -> Put
+putWord16 LE = putWord16le
+putWord16 BE = putWord16be
+
+putWord32 :: ByteOrder -> Word32 -> Put
+putWord32 LE = putWord32le
+putWord32 BE = putWord32be
 
 data TiffHeader = TiffHeader {
     tiffHeaderByteOrder :: Word16

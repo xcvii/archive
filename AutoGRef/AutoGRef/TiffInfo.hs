@@ -33,16 +33,16 @@ defaultTiffInfo = TiffInfo {
   , resolutionUnit = Inch
   , samplesPerPixel = 1
 
-  , imageLength = error "no default imageLength"
-  , imageWidth = error "no default imageWidth"
+  , imageLength = error "imageLength not set"
+  , imageWidth = error "imageWidth not set"
   , photoMetricInterpretation =
-          error "no default photoMetricInterpretation"
-  , xResolution = error "no default xResolution"
-  , yResolution = error "no default yResolution"
+          error "photoMetricInterpretation not set"
+  , xResolution = error "xResolution not set"
+  , yResolution = error "yResolution not set"
 
   , rowsPerStrip = 2^32 - 1
-  , stripByteCounts = error "no default stripByteCounts"
-  , stripOffsets = error "no default stripOffsets"
+  , stripByteCounts = error "stripByteCounts not set"
+  , stripOffsets = error "stripOffsets not set"
 }
 
 data PMI =
