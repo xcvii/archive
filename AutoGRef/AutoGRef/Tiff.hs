@@ -48,7 +48,9 @@ instance Binary Tiff where
     return Tiff { tiffInfo = info
                 , tiffStrips = zip stripSortedOrdinals strips }
 
-  put = undefined
+  put tiff = do
+    putWord16le tiffLE
+    putWord16le tiffMagic
 
 data TiffField = TiffField {
     fieldTag :: Word16
@@ -83,6 +85,9 @@ tiffLE = 0x4949
 
 tiffBE :: Word16
 tiffBE = 0x4d4d
+
+tiffMagic :: Word16
+tiffMagic = 42
 
 getWord16 :: ByteOrder -> Get Word16
 getWord16 LE = getWord16le
