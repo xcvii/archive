@@ -8,10 +8,6 @@ import AutoGRef.Tiff
 import AutoGRef.TiffInfo
 import AutoGRef.Pixel
 
---newtype Chip = Chip { fromChip :: Array Int Pixel }
-
---chip5x5 = array (1, 5) [()]
-
 data Chip = Chip {
     chipWidth :: Int
   , chipData :: Array Int Pixel

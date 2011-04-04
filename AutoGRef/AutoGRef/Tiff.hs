@@ -7,6 +7,7 @@ module AutoGRef.Tiff
 import Data.Binary
 import Data.Binary.Get
 import Data.Binary.Put
+import qualified Data.Binary.Builder as B
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
 
@@ -33,7 +34,7 @@ instance Binary Tiff where
     header <- lookAhead $ getTiffHeader
 
     let byteOrder = if tiffHeaderByteOrder header == tiffLE then LE else BE
-    let fdiOffset = fromIntegral $ tiffHeaderFdiOffset header
+    let fdiOffset = tiffHeaderFdiOffset header
     fields <- lookAhead $ getTiffFields byteOrder fdiOffset
 
     let info = foldr addField defaultTiffInfo fields
@@ -56,22 +57,17 @@ instance Binary Tiff where
     let info = tiffInfo tiff
     let dataSize = sum $ stripByteCounts info
 
-    -- TIFF header
+    -- 0x00: TIFF header
     putWord16le $ if byteOrder == LE then tiffLE else tiffBE
     putWord16 byteOrder tiffMagic
-    putWord32 byteOrder . fromIntegral $ 8 + dataSize
+    putWord32 byteOrder 8
 
-    -- data strips
+    -- 0x08: FDI
+    let fdiData = fdiFromInfo info 8
+    putLazyByteString fdiData
+
+    -- 0x08 + fdiSize: data strips
     mapM_ putLazyByteString . snd . unzip $ tiffStrips tiff
-
-    -- FDI entry count
-    putWord16 byteOrder $ fromIntegral 13
-
-    -- BitsPerSample
-    putWord16 byteOrder (tagId "BitsPerSample")
-    putWord16 byteOrder (typeId "Short")
-    putWord32 byteOrder . fromIntegral . length $ bitsPerSample info
-    putWord32 byteOrder 0
 
     where tagId = fromMaybe 0 . flip lookup tagIds
           typeId = fromMaybe 0 . flip lookup typeIds
@@ -159,10 +155,10 @@ getTiffFdiEntry order =
   TiffFdiEntry <$> getWord16 order <*> getWord16 order
                <*> getWord32 order <*> getWord32 order
 
-getTiffFields :: ByteOrder -> Int -> Get [TiffField]
+getTiffFields :: ByteOrder -> Word32 -> Get [TiffField]
 getTiffFields byteOrder fdiOffset = do
   pos <- bytesRead >>= return . fromIntegral
-  skip $ fdiOffset - pos
+  skip $ (fromIntegral fdiOffset) - pos
 
   entryCount <- getWord16 byteOrder
   replicateM (fromIntegral entryCount) $ do
@@ -205,7 +201,7 @@ addField :: TiffField -> TiffInfo -> TiffInfo
 addField field info
 
   | tag == tagId "BitsPerSample" = info {
-      bitsPerSample = map (fromIntegral . fromShort) values }
+      bitsPerSample = map fromShort values }
 
   | tag == tagId "ColorMap" = info
 
@@ -216,12 +212,12 @@ addField field info
                                | t == 32773 -> PackBits    }
 
   | tag == tagId "ImageLength" = info {
-      imageLength = case head values of Short s -> fromIntegral s
-                                        Long l -> fromIntegral l  }
+      imageLength = case head values of Long l -> l
+                                        Short s -> fromIntegral s }
 
   | tag == tagId "ImageWidth" = info {
-      imageWidth = case head values of Short s -> fromIntegral s
-                                       Long l -> fromIntegral l  }
+      imageWidth = case head values of Long l -> l
+                                       Short s -> fromIntegral s }
 
   | tag == tagId "PhotometricInterpretation" = info {
       photoMetricInterpretation = case fromShort $ head values of
@@ -238,21 +234,21 @@ addField field info
                                   | t == 3 -> Centimeter }
 
   | tag == tagId "RowsPerStrip" = info {
-      rowsPerStrip = case head values of Short s -> fromIntegral s
-                                         Long l -> fromIntegral l  }
+      rowsPerStrip = case head values of Long l -> l
+                                         Short s -> fromIntegral s }
 
   | tag == tagId "SamplesPerPixel" = info {
-      samplesPerPixel = fromIntegral . fromShort $ head values }
+      samplesPerPixel = fromShort $ head values }
 
   | tag == tagId "StripByteCounts" = info {
       stripByteCounts = case head values of
-                          Short _ -> map (fromIntegral . fromShort) values
-                          Long _ -> map (fromIntegral . fromLong) values   }
+                          Long _ -> map fromLong values
+                          Short _ -> map (fromIntegral . fromShort) values }
 
   | tag == tagId "StripOffsets" = info {
       stripOffsets = case head values of
-                          Short _ -> map (fromIntegral . fromShort) values
-                          Long _ -> map (fromIntegral . fromLong) values   }
+                          Long _ -> map fromLong values
+                          Short _ -> map (fromIntegral . fromShort) values }
 
   | tag == tagId "XResolution" = info {
       xResolution = case head values of
@@ -270,12 +266,12 @@ addField field info
         tagId = fromMaybe 0 . flip lookup tagIds
         values = fieldValues field
 
-getStrip :: ByteOrder -> Integer -> Integer -> Get BSL.ByteString
+getStrip :: ByteOrder -> Word32 -> Word32 -> Get BSL.ByteString
 getStrip order from to = do
   pos <- bytesRead >>= return . fromIntegral
-  skip $ (fromInteger from) - pos
+  skip $ (fromIntegral from) - pos
 
-  getLazyByteString $ fromInteger to
+  getLazyByteString $ fromIntegral to
 
 
 tagIds :: [(String, Word16)]
@@ -294,4 +290,10 @@ tagIds =
   , ("XResolution",               282)
   , ("YResolution",               283)
   ]
+
+fdiFromInfo
+  :: TiffInfo
+  -> Int             -- ^ offset at which the FDI will start
+  -> BSL.ByteString
+fdiFromInfo = undefined
 

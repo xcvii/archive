@@ -7,22 +7,24 @@ module AutoGRef.TiffInfo
   )
   where
 
+import Data.Word
+
 data TiffInfo = TiffInfo {
-    bitsPerSample :: [Integer]
+    bitsPerSample :: [Word16]
   , colorMap :: Maybe ColorMap
   , compression :: Compression
   , resolutionUnit :: ResolutionUnit
-  , samplesPerPixel :: Int
+  , samplesPerPixel :: Word16
 
-  , imageLength :: Integer
-  , imageWidth :: Integer
+  , imageLength :: Word32
+  , imageWidth :: Word32
   , photoMetricInterpretation :: PMI
   , xResolution :: Rational
   , yResolution :: Rational
 
-  , rowsPerStrip :: Integer
-  , stripByteCounts :: [Integer]
-  , stripOffsets :: [Integer]
+  , rowsPerStrip :: Word32
+  , stripByteCounts :: [Word32]
+  , stripOffsets :: [Word32]
 }
   deriving (Show)
 
