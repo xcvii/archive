@@ -7,6 +7,7 @@ module AutoGRef.TiffInfo
   )
   where
 
+import Data.Ratio
 import Data.Word
 
 data TiffInfo = TiffInfo {
@@ -19,8 +20,8 @@ data TiffInfo = TiffInfo {
   , imageLength :: Word32
   , imageWidth :: Word32
   , photoMetricInterpretation :: PMI
-  , xResolution :: Rational
-  , yResolution :: Rational
+  , xResolution :: Ratio Word32
+  , yResolution :: Ratio Word32
 
   , rowsPerStrip :: Word32
   , stripByteCounts :: [Word32]
@@ -53,7 +54,7 @@ data PMI =
   | RGB
   | Palette
   | TransparencyMask
-  deriving (Show)
+  deriving (Eq, Show)
 
 type ColorMap = () 
 
@@ -61,11 +62,11 @@ data Compression =
     NoCompression
   | ModifiedHuffman
   | PackBits
-  deriving (Show)
+  deriving (Eq, Show)
 
 data ResolutionUnit =
     NoUnit
   | Inch
   | Centimeter
-  deriving (Show)
+  deriving (Eq, Show)
 

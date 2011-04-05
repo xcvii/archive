@@ -12,10 +12,10 @@ import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
 
 import Control.Applicative ((<$>), (<*>))
-import Control.Monad (replicateM)
-import Data.Function (on)
+import Control.Monad (liftM, replicateM)
 import Data.List (sort)
 import Data.Maybe (fromMaybe)
+import qualified Data.Ratio as R
 import GHC.Real ((%))
 
 import AutoGRef.TiffInfo
@@ -38,15 +38,15 @@ instance Binary Tiff where
     fields <- lookAhead $ getTiffFields byteOrder fdiOffset
 
     let info = foldr addField defaultTiffInfo fields
-    let stripSorted = sort $ flip zip [1..] $ zip (stripOffsets info)
+    let stripSorted = sort . flip zip [1..] $ zip (stripOffsets info)
                                                   (stripByteCounts info)
 
     let stripSortedOffsets = map (fst . fst) stripSorted
     let stripSortedByteCounts = map (snd . fst) stripSorted
     let stripSortedOrdinals = map snd stripSorted
 
-    strips <- mapM (uncurry $ getStrip byteOrder) $
-                    zip stripSortedOffsets stripSortedByteCounts
+    strips <- mapM (uncurry $ getStrip byteOrder)
+                $ zip stripSortedOffsets stripSortedByteCounts
 
     return Tiff { tiffByteOrder = byteOrder
                 , tiffInfo = info
@@ -55,22 +55,25 @@ instance Binary Tiff where
   put tiff = do
     let byteOrder = tiffByteOrder tiff
     let info = tiffInfo tiff
-    let dataSize = sum $ stripByteCounts info
+    let dataOffset = 8
+    let dataSize = fromIntegral . sum $ stripByteCounts info
+    let fdiOffset = dataOffset + dataSize
+
+    let info' = info {
+      stripOffsets = scanl (+) dataOffset . init $ stripByteCounts info }
 
     -- 0x00: TIFF header
     putWord16le $ if byteOrder == LE then tiffLE else tiffBE
     putWord16 byteOrder tiffMagic
-    putWord32 byteOrder 8
+    putWord32 byteOrder fdiOffset
 
-    -- 0x08: FDI
-    let fdiData = fdiFromInfo info 8
-    putLazyByteString fdiData
-
-    -- 0x08 + fdiSize: data strips
+    -- 0x08: data strips
     mapM_ putLazyByteString . snd . unzip $ tiffStrips tiff
 
-    where tagId = fromMaybe 0 . flip lookup tagIds
-          typeId = fromMaybe 0 . flip lookup typeIds
+    -- 0x08 + dataSize: FDI
+    let fdiData = fdiFromInfo byteOrder info' fdiOffset
+    putLazyByteString fdiData
+
 
 data TiffField = TiffField {
     fieldTag :: Word16
@@ -96,6 +99,9 @@ typeIds =
   , ("Long",     4)
   , ("Rational", 5)
   ]
+
+typeId :: String -> Word16
+typeId = fromMaybe 0 . flip lookup typeIds
 
 data ByteOrder = LE | BE
   deriving (Eq, Show)
@@ -157,7 +163,7 @@ getTiffFdiEntry order =
 
 getTiffFields :: ByteOrder -> Word32 -> Get [TiffField]
 getTiffFields byteOrder fdiOffset = do
-  pos <- bytesRead >>= return . fromIntegral
+  pos <- liftM fromIntegral bytesRead
   skip $ (fromIntegral fdiOffset) - pos
 
   entryCount <- getWord16 byteOrder
@@ -167,7 +173,7 @@ getTiffFields byteOrder fdiOffset = do
     let valueType = tiffFdiEntryType fdiEntry
     let count = tiffFdiEntryValueCount fdiEntry
 
-    pos <- bytesRead >>= return . fromIntegral
+    pos <- liftM fromIntegral bytesRead
     let valueOffset =
           if (valueType == typeId "Byte" && count <= 4
              || valueType == typeId "Ascii" && count <= 4
@@ -177,15 +183,15 @@ getTiffFields byteOrder fdiOffset = do
             else tiffFdiEntryValueOffset fdiEntry
 
     values <- lookAhead $ do
-      pos <- bytesRead >>= return . fromIntegral
+      pos <- liftM fromIntegral bytesRead
       skip . fromIntegral $ valueOffset - pos
 
-      replicateM (fromIntegral count) $
-        case valueType of
-          t | t == typeId "Byte" -> getWord8 >>= return . Byte
-            | t == typeId "Ascii" -> getWord8 >>= return . Ascii
-            | t == typeId "Short" -> getWord16 byteOrder >>= return . Short
-            | t == typeId "Long"  -> getWord32 byteOrder >>= return . Long
+      replicateM (fromIntegral count)
+        $ case valueType of
+          t | t == typeId "Byte" -> liftM Byte getWord8
+            | t == typeId "Ascii" -> liftM Ascii getWord8
+            | t == typeId "Short" -> liftM Short $ getWord16 byteOrder
+            | t == typeId "Long"  -> liftM Long $ getWord32 byteOrder
             | t == typeId "Rational" -> Rational <$> getWord32 byteOrder
                                                  <*> getWord32 byteOrder
             | otherwise -> return Unknown
@@ -194,8 +200,6 @@ getTiffFields byteOrder fdiOffset = do
 
     return TiffField { fieldTag = tiffFdiEntryTag fdiEntry
                      , fieldValues = values }
-
-  where typeId = fromMaybe 0 . flip lookup typeIds
 
 addField :: TiffField -> TiffInfo -> TiffInfo
 addField field info
@@ -263,12 +267,11 @@ addField field info
   | otherwise = info
 
   where tag = fieldTag field
-        tagId = fromMaybe 0 . flip lookup tagIds
         values = fieldValues field
 
 getStrip :: ByteOrder -> Word32 -> Word32 -> Get BSL.ByteString
 getStrip order from to = do
-  pos <- bytesRead >>= return . fromIntegral
+  pos <- liftM fromIntegral bytesRead
   skip $ (fromIntegral from) - pos
 
   getLazyByteString $ fromIntegral to
@@ -291,9 +294,154 @@ tagIds =
   , ("YResolution",               283)
   ]
 
-fdiFromInfo
-  :: TiffInfo
-  -> Int             -- ^ offset at which the FDI will start
-  -> BSL.ByteString
-fdiFromInfo = undefined
+tagId :: String -> Word16
+tagId = fromMaybe 0 . flip lookup tagIds
+
+fdiFromInfo :: ByteOrder -> TiffInfo -> Word32 -> BSL.ByteString
+fdiFromInfo byteOrder info offset =
+  BSL.append
+    (runPut . putWord16 byteOrder $ fromIntegral fieldCount)
+    . BSL.concat . tail . snd . unzip
+      $ scanl (flip ($) . fst) (offset + 2, undefined) fieldGenerators
+
+  where
+  fieldGenerators =
+    [ bitsPerSampleChunk
+    , compressionChunk
+    , imageLengthChunk
+    , imageWidthChunk
+    , pmiChunk
+    , resolutionUnitChunk
+    , rowsPerStripChunk
+    , samplesPerPixelChunk
+    , stripByteCountsChunk
+    , stripOffsetsChunk
+    , xResolutionChunk
+    , yResolutionChunk
+    ]
+
+  fieldCount = length fieldGenerators
+
+  bitsPerSampleChunk offset =
+    let output = runPut $ do
+        putWord16 byteOrder $ tagId "BitsPerSample"
+        putWord16 byteOrder $ typeId "Short"
+        putWord32 byteOrder 0 -- ???
+        putWord32 byteOrder 0 -- ???
+    in (offset + fromIntegral (BSL.length output), output)
+
+  compressionChunk offset = 
+    let output = runPut $ do
+        putWord16 byteOrder $ tagId "Compression"
+        putWord16 byteOrder $ typeId "Short"
+        putWord32 byteOrder 1
+        putWord32 byteOrder $ case compression info of
+                               t | t == NoCompression -> 1
+                                 | t == ModifiedHuffman -> 2
+                                 | t == PackBits -> 32773
+    in (offset + 12, output)
+
+  imageLengthChunk offset =
+    let output = runPut $ do
+        putWord16 byteOrder $ tagId "ImageLength"
+        putWord16 byteOrder $ typeId "Long"
+        putWord32 byteOrder 1
+        putWord32 byteOrder $ imageLength info
+    in (offset + 12, output)
+
+  imageWidthChunk offset =
+    let output = runPut $ do
+        putWord16 byteOrder $ tagId "ImageWidth"
+        putWord16 byteOrder $ typeId "Long"
+        putWord32 byteOrder 1
+        putWord32 byteOrder $ imageWidth info
+    in (offset + 12, output)
+
+  pmiChunk offset =
+    let output = runPut $ do
+        putWord16 byteOrder $ tagId "PhotometricInterpretation"
+        putWord16 byteOrder $ typeId "Short"
+        putWord32 byteOrder 1
+        putWord32 byteOrder $ case photoMetricInterpretation info of
+                               t | t == WhiteIsZero -> 0
+                                 | t == BlackIsZero -> 1
+                                 | t == RGB -> 2
+                                 | t == Palette -> 3
+                                 | t == TransparencyMask -> 4
+    in (offset + 12, output)
+
+  resolutionUnitChunk offset =
+    let output = runPut $ do
+        putWord16 byteOrder $ tagId "ResolutionUnit"
+        putWord16 byteOrder $ typeId "Short"
+        putWord32 byteOrder 1
+        putWord32 byteOrder $ case resolutionUnit info of
+                               t | t == NoUnit     -> 1
+                                 | t == Inch       -> 2
+                                 | t == Centimeter -> 3
+    in (offset + 12, output)
+                              
+  rowsPerStripChunk offset =
+    let output = runPut $ do
+        putWord16 byteOrder $ tagId "RowsPerStrip"
+        putWord16 byteOrder $ typeId "Long"
+        putWord32 byteOrder 1
+        putWord32 byteOrder $ rowsPerStrip info
+    in (offset + 12, output)
+
+  samplesPerPixelChunk offset =
+    let output = runPut $ do
+        putWord16 byteOrder $ tagId "SamplesPerPixel"
+        putWord16 byteOrder $ typeId "Short"
+        putWord32 byteOrder 1
+        putWord32 byteOrder . fromIntegral $ samplesPerPixel info
+    in (offset + 12, output)
+
+  stripByteCountsChunk offset =
+    let output = runPut $ do
+        let count = length $ stripByteCounts info
+        putWord16 byteOrder $ tagId "StripByteCounts"
+        putWord16 byteOrder $ typeId "Long"
+        putWord32 byteOrder $ fromIntegral count
+        if 1 == count
+          then do
+            putWord32 byteOrder . head $ stripByteCounts info
+          else do
+            putWord32 byteOrder $ offset + 12
+            mapM_ (putWord32 byteOrder) $ stripByteCounts info
+    in (offset + fromIntegral (BSL.length output), output)
+
+  stripOffsetsChunk offset =
+    let output = runPut $ do
+        let count = length $ stripOffsets info
+        putWord16 byteOrder $ tagId "StripOffsets"
+        putWord16 byteOrder $ typeId "Long"
+        putWord32 byteOrder $ fromIntegral count
+        if 1 == count
+          then do
+            putWord32 byteOrder . head $ stripOffsets info
+          else do
+            putWord32 byteOrder $ offset + 12
+            mapM_ (putWord32 byteOrder) $ stripOffsets info
+    in (offset + fromIntegral (BSL.length output), output)
+
+  xResolutionChunk offset =
+    let output = runPut $ do
+        putWord16 byteOrder $ tagId "XResolution"
+        putWord16 byteOrder $ typeId "Rational"
+        putWord32 byteOrder 1
+        putWord32 byteOrder $ offset + 12
+        putWord32 byteOrder . R.numerator $ xResolution info
+        putWord32 byteOrder . R.denominator $ xResolution info
+    in (offset + 20, output)
+
+  yResolutionChunk offset =
+    let output = runPut $ do
+        putWord16 byteOrder $ tagId "YResolution"
+        putWord16 byteOrder $ typeId "Rational"
+        putWord32 byteOrder 1
+        putWord32 byteOrder $ offset + 12
+        putWord32 byteOrder . R.numerator $ yResolution info
+        putWord32 byteOrder . R.denominator $ yResolution info
+    in (offset + 20, output)
 

@@ -1,9 +1,13 @@
+{-# LANGUAGE NewQualifiedOperators #-}
+
 module AutoGRef.Chip
   --(
   --)
   where
 
-import Data.Array
+import Data.Array hiding ((!))
+import qualified Data.Array as A
+
 import AutoGRef.Tiff
 import AutoGRef.TiffInfo
 import AutoGRef.Pixel
@@ -14,8 +18,11 @@ data Chip = Chip {
 }
   deriving (Show)
 
-(!!!) :: Chip -> (Int, Int) -> Pixel
-(!!!) chip (r, c) =
-  let d = chipData chip; w = chipWidth chip
-  in d ! (r * w + c)
+(!) :: Chip -> (Int, Int) -> Pixel
+(!) (Chip width dat) (row, col)
+  | width <= col                       = error errMsg
+  | not . flip inRange ix $ bounds dat = error errMsg
+  | otherwise                          = dat `A.(!)` ix
+  where ix = row * width + col
+        errMsg = "index " ++ show (row, col) ++ " out of range"
 
