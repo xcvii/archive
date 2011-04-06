@@ -6,15 +6,16 @@ module AutoGRef.Pixel
 import Data.Binary.Get
 import Data.Word
 
+import Control.Applicative ((<$>), (<*>))
+
 data Pixel =
-    RGBPixel Int Int Int
-  | RGBPixel8 Word8 Word8 Word8
+    RGBPixel8 Word8 Word8 Word8
+  -- more might be added
   deriving (Show)
 
 intensity :: Pixel -> Int
-intensity (RGBPixel r g b) = (r + g + b) `div` 3
 intensity (RGBPixel8 r g b) = fromIntegral $ (r + g + b) `div` 3
 
-getPixel :: Get Pixel
-getPixel = do
+getRGBPixel8 :: Get Pixel
+getRGBPixel8 = RGBPixel8 <$> getWord8 <*> getWord8 <*> getWord8
 
