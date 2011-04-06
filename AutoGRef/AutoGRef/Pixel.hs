@@ -13,12 +13,18 @@ data Pixel =
   -- more might be added
   deriving (Show)
 
+getRGBPixel8 :: Get Pixel
+getRGBPixel8 = RGBPixel8 <$> getWord8 <*> getWord8 <*> getWord8
+
 intensity :: Pixel -> Double
 intensity (RGBPixel8 r g b) = (r' + g' + b') / 3 / 256
   where r' = fromIntegral r
         g' = fromIntegral g
         b' = fromIntegral b
 
-getRGBPixel8 :: Get Pixel
-getRGBPixel8 = RGBPixel8 <$> getWord8 <*> getWord8 <*> getWord8
+hue :: Pixel -> Double
+hue (RGBPixel8 r g b) = atan2 ((sqrt 3) * (g' - b')) (2 * r' - g' - b')
+  where r' = fromIntegral r
+        g' = fromIntegral g
+        b' = fromIntegral b
 

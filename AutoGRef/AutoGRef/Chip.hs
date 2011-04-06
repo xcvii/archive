@@ -6,6 +6,7 @@ module AutoGRef.Chip
   where
 
 import qualified Data.Vector as V
+import qualified Data.Vector.Unboxed as UV
 import qualified Data.Vector.Mutable as MV
 import qualified Data.ByteString.Lazy as BSL
 import Data.STRef
@@ -68,9 +69,23 @@ getChip (width, height) tiff (col, row) =
 
   in Chip width height vec
 
+unbox :: V.Vector Double -> UV.Vector Double
+unbox = UV.fromList . V.toList
+
 intensities :: Chip -> V.Vector Double
 intensities (Chip _ _ vec) = V.map intensity vec
 
---chipMeanIntensity :: Chip -> Double
---chipMeanIntensity = mean . intensities
+hues :: Chip -> V.Vector Double
+hues = undefined
+
+chipIntMean :: Chip -> Double
+chipIntMean = mean . unbox . intensities
+
+chipIntStdDev :: Chip -> Double
+chipIntStdDev = stdDev . unbox . intensities
+
+chipHueMean :: Chip -> Double
+chipHueMean (Chip _ _ vec) = atan2 (mean $ UV.map sin hues)
+                                   (mean $ UV.map cos hues)
+  where hues = unbox $ V.map hue vec
 
