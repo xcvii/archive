@@ -5,10 +5,7 @@ module AutoGRef.Chip
   --)
   where
 
-import Data.Array hiding ((!))
-import qualified Data.Array as A
-
-import Data.Vector
+import qualified Data.Vector as V
 
 import AutoGRef.Tiff
 import AutoGRef.TiffInfo
@@ -16,15 +13,17 @@ import AutoGRef.Pixel
 
 data Chip = Chip {
     chipWidth :: Int
-  , chipData :: Array Int Pixel
+  , chipHeight :: Int
+  , chipData :: V.Vector Pixel
 }
   deriving (Show)
 
 (!) :: Chip -> (Int, Int) -> Pixel
-(!) (Chip width dat) (row, col)
-  | width <= col                       = error errMsg
-  | not . flip inRange ix $ bounds dat = error errMsg
-  | otherwise                          = dat `A.(!)` ix
+(!) (Chip width height vec) (row, col)
+  | width <= col || col < 0  = error errMsg
+  | height <= row || row < 0 = error errMsg
+  | otherwise                = vec `V.(!)` ix
   where ix = row * width + col
-        errMsg = "index " ++ show (row, col) ++ " out of range"
+        errMsg = "index " ++ show (row, col)
+          ++ " out of range " ++ show (width - 1, height - 1)
 

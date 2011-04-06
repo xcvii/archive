@@ -3,6 +3,7 @@ module AutoGRef.Pixel
   --)
   where
 
+import Data.Binary.Get
 import Data.Word
 
 data Pixel =
@@ -13,4 +14,7 @@ data Pixel =
 intensity :: Pixel -> Int
 intensity (RGBPixel r g b) = (r + g + b) `div` 3
 intensity (RGBPixel8 r g b) = fromIntegral $ (r + g + b) `div` 3
+
+getPixel :: Get Pixel
+getPixel = do
 

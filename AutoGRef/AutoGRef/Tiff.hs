@@ -25,7 +25,7 @@ import Debug.Trace
 data Tiff = Tiff {
     tiffByteOrder :: ByteOrder
   , tiffInfo :: TiffInfo
-  , tiffStrips :: [(Integer, BSL.ByteString)]
+  , tiffStrips :: [BSL.ByteString]
 }
   deriving (Show)
 
@@ -38,19 +38,17 @@ instance Binary Tiff where
     fields <- lookAhead $ getTiffFields byteOrder fdiOffset
 
     let info = foldr addField defaultTiffInfo fields
-    let stripSorted = sort . flip zip [1..] $ zip (stripOffsets info)
-                                                  (stripByteCounts info)
+    let stripSorted = sort $ zip (stripOffsets info) (stripByteCounts info)
 
-    let stripSortedOffsets = map (fst . fst) stripSorted
-    let stripSortedByteCounts = map (snd . fst) stripSorted
-    let stripSortedOrdinals = map snd stripSorted
+    let stripSortedOffsets = fst $ unzip stripSorted
+    let stripSortedByteCounts = snd $ unzip stripSorted
 
     strips <- mapM (uncurry $ getStrip byteOrder)
                 $ zip stripSortedOffsets stripSortedByteCounts
 
     return Tiff { tiffByteOrder = byteOrder
                 , tiffInfo = info
-                , tiffStrips = zip stripSortedOrdinals strips }
+                , tiffStrips = strips }
 
   put tiff = do
     let byteOrder = tiffByteOrder tiff
@@ -68,9 +66,7 @@ instance Binary Tiff where
     putWord32 byteOrder fdiOffset
 
     -- 0x08: data strips
-    mapM_ putLazyByteString . snd . unzip $ tiffStrips tiff
-
-    import Data.Vector
+    mapM_ putLazyByteString $ tiffStrips tiff
 
     -- 0x08 + dataSize: FDI
     let fdiData = fdiFromInfo byteOrder info' fdiOffset
@@ -303,28 +299,29 @@ fdiFromInfo :: ByteOrder -> TiffInfo -> Word32 -> BSL.ByteString
 fdiFromInfo byteOrder info offset =
   BSL.append
     (runPut . putWord16 byteOrder $ fromIntegral fieldCount)
-    . BSL.concat . uncurry (++) . unzip . tail . snd . unzip
+    . BSL.concat . uncurry ((++) . flip (++) [BSL.replicate 4 0])
+      . unzip . tail . snd . unzip
       $ scanl (flip ($) . fst) (auxOffset, undefined) fieldGenerators
 
   where
   fieldGenerators =
-    [ bitsPerSampleGen
-    , compressionGen
+    [ imageWidthGen
     , imageLengthGen
-    , imageWidthGen
+    , bitsPerSampleGen
+    , compressionGen
     , pmiGen
-    , resolutionUnitGen
-    , rowsPerStripGen
-    , samplesPerPixelGen
-    , stripByteCountsGen
     , stripOffsetsGen
+    , samplesPerPixelGen
+    , rowsPerStripGen
+    , stripByteCountsGen
     , xResolutionGen
     , yResolutionGen
+    , resolutionUnitGen
     ]
 
   fieldCount = length fieldGenerators
 
-  auxOffset = offset + 2 + (12 * fromIntegral fieldCount)
+  auxOffset = offset + 2 + (12 * fromIntegral fieldCount) + 4
 
   putEntry tag typ count value = do
     putWord16 byteOrder $ tagId tag
@@ -332,7 +329,30 @@ fdiFromInfo byteOrder info offset =
     putWord32 byteOrder count
     putWord32 byteOrder value
 
+  {-
+  putEntry' offset tag typ count values =
+    let auxCount = if BSL.length values <= 4
+                   then 0 else BSL.length values
+        entry = do
+          putWord16 byteOrder $ tagId tag
+          putWord16 byteOrder $ tagId typ
+          putWord32 byteOrder count
+          if auxCount == 0
+            then putLazyByteString
+                . BSL.take 4 . BSL.append values $ BSL.repeat 0
+            else putWord32 byteOrder offset
+        aux = if auxCount == 0
+              then return ()
+              else putLazyByteString values
+    in (fromIntegral auxCount, (entry, aux))
+    -}
+
   bitsPerSampleGen offset =
+  {-
+    putEntry' offset "BitsPerSample" "Short"
+      (fromIntegral $ samplesPerPixel info)
+      . runPut $ mapM_ (putWord16 byteOrder) $ bitsPerSample info
+      -}
     let entry = runPut $ do
           let count = samplesPerPixel info
           putWord16 byteOrder $ tagId "BitsPerSample"
@@ -423,14 +443,14 @@ fdiFromInfo byteOrder info offset =
     in (offset + fromIntegral (BSL.length aux), (entry, aux))
 
   xResolutionGen offset =
-    let entry = runPut $ putEntry "xResolution" "Rational" 1 offset
+    let entry = runPut $ putEntry "XResolution" "Rational" 1 offset
         aux = runPut $ do
             putWord32 byteOrder . R.numerator $ xResolution info
             putWord32 byteOrder . R.denominator $ xResolution info
     in (offset + 8, (entry, aux))
 
   yResolutionGen offset =
-    let entry = runPut $ putEntry "yResolution" "Rational" 1 offset
+    let entry = runPut $ putEntry "YResolution" "Rational" 1 offset
         aux = runPut $ do
             putWord32 byteOrder . R.numerator $ yResolution info
             putWord32 byteOrder . R.denominator $ yResolution info
