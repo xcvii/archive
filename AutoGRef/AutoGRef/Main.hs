@@ -18,5 +18,5 @@ fileName = "/home/baja/Downloads/elte_tfe_feladatok_2_bement/nem_referalt/0506-8
 main = do
   tiff <- decodeFile fileName :: IO Tiff
 
-  print $ getChip (10, 10) tiff (0, 0)
+  print $ intensities $ getChip (10, 10) tiff (0, 0)
 

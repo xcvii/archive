@@ -12,6 +12,7 @@ import Data.STRef
 import Control.Monad
 import Data.Word
 import Data.Binary.Get
+import Statistics.Sample
 
 import AutoGRef.Tiff
 import AutoGRef.TiffInfo
@@ -61,9 +62,15 @@ getChip (width, height) tiff (col, row) =
         forM_ [0..width - 1] $ \j -> do
           l <- readSTRef line
           MV.write result (i * width + j) $ runGet getRGBPixel8 l
-          modifySTRef line $ BSL.drop $ pixelByteCount
+          modifySTRef line . BSL.drop $ pixelByteCount
 
       return result
-    
+
   in Chip width height vec
+
+intensities :: Chip -> V.Vector Double
+intensities (Chip _ _ vec) = V.map intensity vec
+
+--chipMeanIntensity :: Chip -> Double
+--chipMeanIntensity = mean . intensities
 
