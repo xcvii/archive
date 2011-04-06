@@ -12,7 +12,9 @@ import AutoGRef.TiffInfo
 
 import Data.Hex
 
-fileName = "/home/baja/Documents/1x800 white rect.tif"
+--fileName = "/home/baja/Documents/1x800 white rect.tif"
+fileName =
+  "/home/baja/Downloads/elte_tfe_feladatok_2_bement/nem_referalt/0506-8bit.tif"
 
 main = do
   tiff <- decodeFile fileName

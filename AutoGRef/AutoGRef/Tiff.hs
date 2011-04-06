@@ -1,7 +1,7 @@
 module AutoGRef.Tiff
-  --( Tiff (..)
-  --, ByteOrder (..)
-  --)
+  ( Tiff (..)
+  , ByteOrder (..)
+  )
   where
 
 import Data.Binary
@@ -69,6 +69,8 @@ instance Binary Tiff where
 
     -- 0x08: data strips
     mapM_ putLazyByteString . snd . unzip $ tiffStrips tiff
+
+    import Data.Vector
 
     -- 0x08 + dataSize: FDI
     let fdiData = fdiFromInfo byteOrder info' fdiOffset
@@ -301,147 +303,136 @@ fdiFromInfo :: ByteOrder -> TiffInfo -> Word32 -> BSL.ByteString
 fdiFromInfo byteOrder info offset =
   BSL.append
     (runPut . putWord16 byteOrder $ fromIntegral fieldCount)
-    . BSL.concat . tail . snd . unzip
-      $ scanl (flip ($) . fst) (offset + 2, undefined) fieldGenerators
+    . BSL.concat . uncurry (++) . unzip . tail . snd . unzip
+      $ scanl (flip ($) . fst) (auxOffset, undefined) fieldGenerators
 
   where
   fieldGenerators =
-    [ bitsPerSampleChunk
-    , compressionChunk
-    , imageLengthChunk
-    , imageWidthChunk
-    , pmiChunk
-    , resolutionUnitChunk
-    , rowsPerStripChunk
-    , samplesPerPixelChunk
-    , stripByteCountsChunk
-    , stripOffsetsChunk
-    , xResolutionChunk
-    , yResolutionChunk
+    [ bitsPerSampleGen
+    , compressionGen
+    , imageLengthGen
+    , imageWidthGen
+    , pmiGen
+    , resolutionUnitGen
+    , rowsPerStripGen
+    , samplesPerPixelGen
+    , stripByteCountsGen
+    , stripOffsetsGen
+    , xResolutionGen
+    , yResolutionGen
     ]
 
   fieldCount = length fieldGenerators
 
-  bitsPerSampleChunk offset =
-    let output = runPut $ do
-        putWord16 byteOrder $ tagId "BitsPerSample"
-        putWord16 byteOrder $ typeId "Short"
-        putWord32 byteOrder 0 -- ???
-        putWord32 byteOrder 0 -- ???
-    in (offset + fromIntegral (BSL.length output), output)
+  auxOffset = offset + 2 + (12 * fromIntegral fieldCount)
 
-  compressionChunk offset = 
-    let output = runPut $ do
-        putWord16 byteOrder $ tagId "Compression"
-        putWord16 byteOrder $ typeId "Short"
-        putWord32 byteOrder 1
-        putWord32 byteOrder $ case compression info of
-                               t | t == NoCompression -> 1
-                                 | t == ModifiedHuffman -> 2
-                                 | t == PackBits -> 32773
-    in (offset + 12, output)
+  putEntry tag typ count value = do
+    putWord16 byteOrder $ tagId tag
+    putWord16 byteOrder $ typeId typ
+    putWord32 byteOrder count
+    putWord32 byteOrder value
 
-  imageLengthChunk offset =
-    let output = runPut $ do
-        putWord16 byteOrder $ tagId "ImageLength"
-        putWord16 byteOrder $ typeId "Long"
-        putWord32 byteOrder 1
-        putWord32 byteOrder $ imageLength info
-    in (offset + 12, output)
+  bitsPerSampleGen offset =
+    let entry = runPut $ do
+          let count = samplesPerPixel info
+          putWord16 byteOrder $ tagId "BitsPerSample"
+          putWord16 byteOrder $ typeId "Short"
+          putWord32 byteOrder . fromIntegral $ samplesPerPixel info
+          if count <= 2
+            then do mapM_ (putWord16 byteOrder) $ bitsPerSample info
+                      ++ if count == 2 then [] else [0]
+            else do putWord32 byteOrder offset
 
-  imageWidthChunk offset =
-    let output = runPut $ do
-        putWord16 byteOrder $ tagId "ImageWidth"
-        putWord16 byteOrder $ typeId "Long"
-        putWord32 byteOrder 1
-        putWord32 byteOrder $ imageWidth info
-    in (offset + 12, output)
+        aux = if samplesPerPixel info > 2
+                then runPut $ do mapM_ (putWord16 byteOrder)
+                    $ bitsPerSample info
+                else BSL.empty
+    in (offset + fromIntegral (BSL.length aux), (entry, aux))
 
-  pmiChunk offset =
-    let output = runPut $ do
-        putWord16 byteOrder $ tagId "PhotometricInterpretation"
-        putWord16 byteOrder $ typeId "Short"
-        putWord32 byteOrder 1
-        putWord32 byteOrder $ case photoMetricInterpretation info of
-                               t | t == WhiteIsZero -> 0
-                                 | t == BlackIsZero -> 1
-                                 | t == RGB -> 2
-                                 | t == Palette -> 3
-                                 | t == TransparencyMask -> 4
-    in (offset + 12, output)
+  compressionGen offset =
+    let entry = runPut $ putEntry "Compression" "Short" 1
+          $ case compression info of
+            t | t == NoCompression -> 1
+              | t == ModifiedHuffman -> 2
+              | t == PackBits -> 32773
+    in (offset, (entry, BSL.empty))
 
-  resolutionUnitChunk offset =
-    let output = runPut $ do
-        putWord16 byteOrder $ tagId "ResolutionUnit"
-        putWord16 byteOrder $ typeId "Short"
-        putWord32 byteOrder 1
-        putWord32 byteOrder $ case resolutionUnit info of
-                               t | t == NoUnit     -> 1
-                                 | t == Inch       -> 2
-                                 | t == Centimeter -> 3
-    in (offset + 12, output)
-                              
-  rowsPerStripChunk offset =
-    let output = runPut $ do
-        putWord16 byteOrder $ tagId "RowsPerStrip"
-        putWord16 byteOrder $ typeId "Long"
-        putWord32 byteOrder 1
-        putWord32 byteOrder $ rowsPerStrip info
-    in (offset + 12, output)
+  imageLengthGen offset =
+    let entry = runPut $ putEntry "ImageLength" "Long" 1 $ imageLength info
+    in (offset, (entry, BSL.empty))
 
-  samplesPerPixelChunk offset =
-    let output = runPut $ do
-        putWord16 byteOrder $ tagId "SamplesPerPixel"
-        putWord16 byteOrder $ typeId "Short"
-        putWord32 byteOrder 1
-        putWord32 byteOrder . fromIntegral $ samplesPerPixel info
-    in (offset + 12, output)
+  imageWidthGen offset =
+    let entry = runPut $ putEntry "ImageWidth" "Long" 1 $ imageWidth info
+    in (offset, (entry, BSL.empty))
 
-  stripByteCountsChunk offset =
-    let output = runPut $ do
-        let count = length $ stripByteCounts info
-        putWord16 byteOrder $ tagId "StripByteCounts"
-        putWord16 byteOrder $ typeId "Long"
-        putWord32 byteOrder $ fromIntegral count
-        if 1 == count
-          then do
-            putWord32 byteOrder . head $ stripByteCounts info
-          else do
-            putWord32 byteOrder $ offset + 12
-            mapM_ (putWord32 byteOrder) $ stripByteCounts info
-    in (offset + fromIntegral (BSL.length output), output)
+  pmiGen offset =
+    let entry = runPut $ putEntry "PhotometricInterpretation" "Short" 1
+          $ case photoMetricInterpretation info of
+            t | t == WhiteIsZero -> 0
+              | t == BlackIsZero -> 1
+              | t == RGB -> 2
+              | t == Palette -> 3
+              | t == TransparencyMask -> 4
+    in (offset, (entry, BSL.empty))
 
-  stripOffsetsChunk offset =
-    let output = runPut $ do
-        let count = length $ stripOffsets info
-        putWord16 byteOrder $ tagId "StripOffsets"
-        putWord16 byteOrder $ typeId "Long"
-        putWord32 byteOrder $ fromIntegral count
-        if 1 == count
-          then do
-            putWord32 byteOrder . head $ stripOffsets info
-          else do
-            putWord32 byteOrder $ offset + 12
-            mapM_ (putWord32 byteOrder) $ stripOffsets info
-    in (offset + fromIntegral (BSL.length output), output)
+  resolutionUnitGen offset =
+    let entry = runPut $ putEntry "ResolutionUnit" "Short" 1
+          $ case resolutionUnit info of
+            t | t == NoUnit     -> 1
+              | t == Inch       -> 2
+              | t == Centimeter -> 3
+    in (offset, (entry, BSL.empty))
 
-  xResolutionChunk offset =
-    let output = runPut $ do
-        putWord16 byteOrder $ tagId "XResolution"
-        putWord16 byteOrder $ typeId "Rational"
-        putWord32 byteOrder 1
-        putWord32 byteOrder $ offset + 12
-        putWord32 byteOrder . R.numerator $ xResolution info
-        putWord32 byteOrder . R.denominator $ xResolution info
-    in (offset + 20, output)
+  rowsPerStripGen offset =
+    let entry = runPut $ putEntry "RowsPerStrip" "Long" 1 $ rowsPerStrip info
+    in (offset, (entry, BSL.empty))
 
-  yResolutionChunk offset =
-    let output = runPut $ do
-        putWord16 byteOrder $ tagId "YResolution"
-        putWord16 byteOrder $ typeId "Rational"
-        putWord32 byteOrder 1
-        putWord32 byteOrder $ offset + 12
-        putWord32 byteOrder . R.numerator $ yResolution info
-        putWord32 byteOrder . R.denominator $ yResolution info
-    in (offset + 20, output)
+  samplesPerPixelGen offset =
+    let entry = runPut $ putEntry "SamplesPerPixel" "Short" 1
+          . fromIntegral $ samplesPerPixel info
+    in (offset, (entry, BSL.empty))
+
+  stripByteCountsGen offset =
+    let entry = runPut $ do
+          let count = length $ stripByteCounts info
+          putWord16 byteOrder $ tagId "StripByteCounts"
+          putWord16 byteOrder $ typeId "Long"
+          putWord32 byteOrder $ fromIntegral count
+          if 1 == count
+            then do putWord32 byteOrder . head $ stripByteCounts info
+            else do putWord32 byteOrder $ offset
+        aux = if 1 < length (stripByteCounts info)
+                then runPut
+                  $ do mapM_ (putWord32 byteOrder) $ stripByteCounts info
+                else BSL.empty
+    in (offset + fromIntegral (BSL.length aux), (entry, aux))
+
+  stripOffsetsGen offset =
+    let entry = runPut $ do
+          let count = length $ stripOffsets info
+          putWord16 byteOrder $ tagId "StripOffsets"
+          putWord16 byteOrder $ typeId "Long"
+          putWord32 byteOrder $ fromIntegral count
+          if 1 == count
+            then do putWord32 byteOrder . head $ stripOffsets info
+            else do putWord32 byteOrder $ offset
+        aux = if 1 < length (stripOffsets info)
+                then runPut
+                  $ do mapM_ (putWord32 byteOrder) $ stripOffsets info
+                else BSL.empty
+    in (offset + fromIntegral (BSL.length aux), (entry, aux))
+
+  xResolutionGen offset =
+    let entry = runPut $ putEntry "xResolution" "Rational" 1 offset
+        aux = runPut $ do
+            putWord32 byteOrder . R.numerator $ xResolution info
+            putWord32 byteOrder . R.denominator $ xResolution info
+    in (offset + 8, (entry, aux))
+
+  yResolutionGen offset =
+    let entry = runPut $ putEntry "yResolution" "Rational" 1 offset
+        aux = runPut $ do
+            putWord32 byteOrder . R.numerator $ yResolution info
+            putWord32 byteOrder . R.denominator $ yResolution info
+    in (offset + 8, (entry, aux))
 

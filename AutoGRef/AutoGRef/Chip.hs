@@ -8,6 +8,8 @@ module AutoGRef.Chip
 import Data.Array hiding ((!))
 import qualified Data.Array as A
 
+import Data.Vector
+
 import AutoGRef.Tiff
 import AutoGRef.TiffInfo
 import AutoGRef.Pixel
