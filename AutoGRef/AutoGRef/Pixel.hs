@@ -17,7 +17,7 @@ getRGBPixel8 :: Get Pixel
 getRGBPixel8 = RGBPixel8 <$> getWord8 <*> getWord8 <*> getWord8
 
 intensity :: Pixel -> Double
-intensity (RGBPixel8 r g b) = (r' + g' + b') / 3 / 256
+intensity (RGBPixel8 r g b) = (r' + g' + b') / 3 / 255
   where r' = fromIntegral r
         g' = fromIntegral g
         b' = fromIntegral b
