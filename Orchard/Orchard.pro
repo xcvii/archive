@@ -7,10 +7,16 @@ LIBS += -lqxmlrpc
 
 SOURCES += \
     main.cc \
-    RpcServer.cc
+    MessageServer.cc \
+    Scene.cc
 
 OTHER_FILES += \
-    Orchard.qml
+    Orchard.qml \
+    Picker.qml
 
 HEADERS += \
-    RpcServer.h
+    MessageServer.h \
+    Scene.h
+
+RESOURCES += \
+    UI.qrc
