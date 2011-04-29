@@ -5,11 +5,10 @@ Rectangle {
     height: 50
 
     color: "transparent"
-    state: "invisible"
 
-    function toggleState () {
-        state = (state == "invisible") ? "ripe" : "invisible"
-    }
+    signal fall ()
+
+    onStateChanged: { if (state == "invisible") fall(); }
 
     Image {
         id: appleImg
@@ -59,7 +58,7 @@ Rectangle {
                     property: "scale";
                     from: 0;
                     to: 1;
-                    duration: 20000
+                    duration: 15000
                     easing.type: Easing.OutCubic
                 }
             }
@@ -79,7 +78,6 @@ Rectangle {
                 }
 
                 ParallelAnimation {
-
                     PropertyAnimation {
                         target: appleImg
                         property: "x"

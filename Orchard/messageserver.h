@@ -23,7 +23,7 @@ public:
     explicit MessageServer (int port, QObject *parent = 0);
 
     bool sendMessage (int socketId, QString const &messageTitle,
-                      QString const &messageBody);
+                      QString const &messageBody) const;
 
     bool getMessage (int socketId, /*out*/ QString &messageTitle,
                      /*out*/ QString &messageBody);

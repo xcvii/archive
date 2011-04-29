@@ -4,6 +4,7 @@ Rectangle {
     id: route
 
     property string pickerName: "picker"
+    property int pickerPosition: picker.x + picker.width / 2
 
     color: "transparent"
     state: "walk"
@@ -24,28 +25,27 @@ Rectangle {
 
     SequentialAnimation {
         id: walkAnimation
-        loops: Animation.Infinite
+//        loops: Animation.Infinite
+        running: true;
+        onCompleted: { restart (); }
 
-        NumberAnimation {
+        SmoothedAnimation {
             target: picker; property: "x"
             to: route.width - picker.width
-            duration: 25000
-//            velocity: 50
-//            easing.type: Easing.Linear
+            velocity: 30
+            maximumEasingTime: 0
         }
 
-        PauseAnimation { duration: 500 }
+//        PauseAnimation { duration: 500 }
 
-        NumberAnimation {
+        SmoothedAnimation {
             target: picker; property: "x"
             to: 0
-            duration: 25000
-
-//            velocity: 50
-//            easing.type: Easing.Linear
+            velocity: 30
+            maximumEasingTime: 0
         }
 
-        PauseAnimation { duration: 500 }
+//        PauseAnimation { duration: 500 }
     }
 
     states: [
@@ -53,7 +53,8 @@ Rectangle {
             name: "walk"
             PropertyChanges {
                 target: walkAnimation
-                running: true
+//                running: true
+                paused: false;
             }
             PropertyChanges {
                 target: picker
@@ -64,7 +65,8 @@ Rectangle {
             name: "idle"
             PropertyChanges {
                 target: walkAnimation
-                running: false;
+//                running: false;
+                paused: true;
             }
             PropertyChanges {
                 target: picker
@@ -75,11 +77,12 @@ Rectangle {
             name: "spec"
             PropertyChanges {
                 target: walkAnimation
-                running: false;
+//                running: false;
+                paused: true;
             }
             PropertyChanges {
                 target: picker
-                color: "orange"
+                color: "purple"
             }
         }
     ]

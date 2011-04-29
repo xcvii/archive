@@ -3,6 +3,8 @@ import Qt 4.7
 Rectangle {
     property string appleState: ""
 
+    signal appleFall ()
+
     width: 100; height: 200
 
     color: "transparent"
@@ -16,5 +18,6 @@ Rectangle {
 
         x: 23; y: 53
         state: appleState
+        onFall: { appleFall (); }
     }
 }

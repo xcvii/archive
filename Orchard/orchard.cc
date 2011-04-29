@@ -6,8 +6,9 @@
 #include <QDeclarativeContext>
 #include <QDeclarativeComponent>
 
-Orchard::Orchard(QObject *parent)
+Orchard::Orchard(MessageServer const *server, QObject *parent)
     : QObject (parent)
+    , _messageServer (server)
 {
     qmlRegisterType <Picker> ();
     qmlRegisterType <TreeState> ();
@@ -16,6 +17,9 @@ Orchard::Orchard(QObject *parent)
     {
         _treeStates.push_back (new TreeState ("invisible"));
     }
+
+    connect (this, SIGNAL (appleHitsPicker (QString)),
+             SLOT (handleAppleHitsPicker (QString)));
 }
 
 QDeclarativeImageProvider *
@@ -103,7 +107,7 @@ Orchard::getMessage (int id)
     {
         _pickers[id] = new Picker (body, this);
         _pickerModel.add (_pickers[id]);
-        //emit pickersChanged ();
+        emit pickersChanged ();
         server->sendMessage (id, "response", QString (body) + " added");
         qDebug () << body << "added";
     }
@@ -117,11 +121,15 @@ Orchard::getMessage (int id)
     }
     else if (0 == title.compare ("state") && _pickers.count (id))
     {
+        QString formerState = _pickers[id]->pickerState ();
         _pickers[id]->setPickerState (body);
         _pickerModel.changeState (_pickers[id], body);
-        server->sendMessage (id, "response",
-            _pickers[id]->name () + " state changed to " + body);
-        qDebug () << (_pickers[id]->name ()) << "state changed to" << body;
+        if (body != formerState)
+        {
+            server->sendMessage (id, "response",
+                                 _pickers[id]->name () + " state changed to " + body);
+            qDebug () << (_pickers[id]->name ()) << "state changed to" << body;
+        }
     }
 }
 
@@ -129,8 +137,23 @@ void
 Orchard::pickerDC (int id)
 {
     qDebug () << _pickers[id]->name () << "disconnected";
+    _pickerModel.remove (_pickers[id]);
     _pickers.remove (id);
     emit pickersChanged ();
+}
+
+void
+Orchard::handleAppleHitsPicker (QString name)
+{
+    qDebug () << "an apple hits" << name + "!";
+    QMap <int, Picker *>::iterator it = _pickers.begin ();
+
+    for (; it.value()->name() != name; ++it) ;
+
+    if (it != _pickers.end ())
+    {
+        _messageServer->sendMessage (it.key (), "hit", "");
+    }
 }
 
 Orchard::PickerImageProvider::PickerImageProvider ()
@@ -165,7 +188,7 @@ TreeState::TreeState (QString const &state)
     : _treeState (state)
 {
     connect (&_timer, SIGNAL (timeout ()), SLOT (toggleState ()));
-    _timer.setInterval (5000 + rand () % 15000);
+    _timer.setInterval (5000 + rand () % 12000);
     _timer.start ();
 }
 
@@ -175,12 +198,12 @@ TreeState::toggleState ()
     if (_treeState == "invisible")
     {
         _treeState = "ripe";
-        _timer.setInterval (5000 + rand () % 15000);
+        _timer.setInterval (5000 + rand () % 12000);
     }
     else
     {
         _treeState = "invisible";
-        _timer.setInterval (5000 + rand () % 5000);
+        _timer.setInterval (5000 + rand () % 4000);
     }
 
     emit treeStateChanged ();

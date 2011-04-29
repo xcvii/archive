@@ -24,7 +24,7 @@ MessageServer::MessageServer (int port, QObject *parent)
 
 bool
 MessageServer::sendMessage (int socketId, QString const &messageTitle,
-                            QString const &messageBody)
+                            QString const &messageBody) const
 {
     QByteArray message;
     QXmlStreamWriter writer (&message);
@@ -43,6 +43,9 @@ bool
 MessageServer::getMessage (int socketId, /*out*/ QString &messageTitle,
                            /*out*/ QString &messageBody)
 {
+    messageTitle.clear ();
+    messageBody.clear ();
+
     QByteArray const &message = _sockets[socketId]->readAll ();
 
     QXmlStreamReader reader (message);
@@ -84,7 +87,6 @@ MessageServer::getMessage (int socketId, /*out*/ QString &messageTitle,
     {
         qDebug () << reader.errorString ();
         qDebug () << message;
-        messageTitle = messageBody = "";
         return false;
     }
 

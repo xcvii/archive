@@ -11,7 +11,7 @@ int main (int argc, char *argv[])
     QApplication app (argc, argv);
 
     MessageServer *server = new MessageServer (8001);
-    Orchard *orchard = new Orchard;
+    Orchard *orchard = new Orchard (server);
 
     QObject::connect (server, SIGNAL (newMessage (int)),
                       orchard, SLOT (getMessage (int)));

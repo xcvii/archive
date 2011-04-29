@@ -9,6 +9,7 @@ class Picker : public QObject
 
     QString _name;
     QString _state;
+
 public:
     explicit Picker (QString name, QObject *parent = 0);
 

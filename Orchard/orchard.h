@@ -1,6 +1,7 @@
 #ifndef ORCHARD_H
 #define ORCHARD_H
 
+#include "messageserver.h"
 #include "picker.h"
 
 #include <QObject>
@@ -41,8 +42,8 @@ class Orchard : public QObject
         PickerModel ()
         {
             QHash <int, QByteArray> roles;
-            roles[NameRole] = "name";
-            roles[StateRole] = "state";
+            roles[NameRole] = "nameProp";
+            roles[StateRole] = "stateProp";
             setRoleNames (roles);
         }
 
@@ -80,12 +81,13 @@ class Orchard : public QObject
         }
     } _pickerModel;
 
+    MessageServer const *_messageServer;
     PickerImageProvider _spriteProvider;
     QMap <int, Picker *> _pickers;
     QList <TreeState *> _treeStates;
 
 public:
-    explicit Orchard (QObject *parent = 0);
+    explicit Orchard (MessageServer const *server, QObject *parent = 0);
     QDeclarativeImageProvider *getSpriteProvider ();
 
     QDeclarativeListProperty <Picker> pickers ();
@@ -102,6 +104,10 @@ public:
 signals:
     void pickersChanged ();
     void treeStatesChanged ();
+    void appleHitsPicker (QString);
+
+private slots:
+    void handleAppleHitsPicker (QString);
 
 public slots:
     void getMessage (int id);
