@@ -1,0 +1,17 @@
+client
+* xyzzy
+* name (name)
+* sprites (sprites)
+* change state (state)
+* look for an apple
+* go to (apple)
+* pick (apple)
+* take (apple)
+* leave
+
+server
+* nothing happens
+* meet (name)
+* see (tree)
+* find (apple)
+* hit by apple

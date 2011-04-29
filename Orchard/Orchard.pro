@@ -1,22 +1,24 @@
-
 TEMPLATE += app
 
 QT += gui declarative xml network
 
-LIBS += -lqxmlrpc
+HEADERS += \
+    messageserver.h \
+    orchard.h \
+    picker.h
 
 SOURCES += \
+    messageserver.cc \
     main.cc \
-    MessageServer.cc \
-    Scene.cc
+    orchard.cc \
+    picker.cc
 
 OTHER_FILES += \
-    Orchard.qml \
-    Picker.qml
-
-HEADERS += \
-    MessageServer.h \
-    Scene.h
+    messages.txt \
+    scene.qml \
+    Apple.qml \
+    Picker.qml \
+    Tree.qml
 
 RESOURCES += \
-    UI.qrc
+    orchard.qrc
