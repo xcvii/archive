@@ -262,7 +262,7 @@ static int ec_add(mpz_t xr, mpz_t yr, mpz_t x1, mpz_t y1, int z1,
   /* add two points of an elliptic curve by matching an addition rule,
    * in non-trivial cases producing a secant connecting the points (or a
    * tangent in case of overlapping points), finding the third intersection
-   * point and mirroring it to the y axis
+   * point and mirroring it to the x axis
    */
 
   if (0 == z1 && 0 == z2) /* 0 + 0 = 0 */
