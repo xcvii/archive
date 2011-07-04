@@ -2,15 +2,15 @@
 
 #include "sieve.h"
 
+#ifdef DEBUG
+#include <stdio.h>
+#endif /* DEBUG */
+
 #include <gmp.h>
 
 #include <limits.h>
 #include <stdlib.h>
 #include <time.h>
-
-#ifdef DEBUG
-#include <stdio.h>
-#endif /* DEBUG */
 
 /* get the discriminant of a curve, given by
  *   delta(E(a, b)) = 4 * a^3 + 27 * b^2
@@ -126,10 +126,28 @@ int ecpp_test(unsigned long n)
       }
     }
 
+    /* P + P != 0, or a new curve is generated
+     */
+    z = ec_add(xt, yt, x0, y0, 1, x0, y0, 1, n, a);
+
+#ifdef DEBUG
+    gmp_fprintf(stderr, "\t2 * P = (%Zd,%Zd,%d)\n", xt, yt, z);
+#endif /* DEBUG */
+
+    if (0 == z)
+    {
+      continue;
+    }
+
     /* the curve order algorithm failing indicates n is composite
      */
     if (!(ec_order(tmp, a, b, n)))
     {
+#ifdef DEBUG
+      gmp_fprintf(stderr,
+          "\tcurve order algorithm failed, %d must be composite\n", n);
+#endif /* DEBUG */
+
       is_prime = 0;
       break;
     }
@@ -146,39 +164,28 @@ int ecpp_test(unsigned long n)
       continue;
     }
 
-    /* P + P != 0, or a new curve is generated
+    /* order * P = 0, or n is composite
      */
-    z = ec_add(xt, yt, x0, y0, 1, x0, y0, 1, n, a);
+    z = ec_times(xt, yt, x0, y0, 1, tmp, n, a);
 
 #ifdef DEBUG
-    gmp_fprintf(stderr, "\t2 * P = (%Zd,%Zd,%d)\n", xt, yt, z);
+    gmp_fprintf(stderr, "\t|E| * P = (%Zd,%Zd,%d)\n", xt, yt, z);
 #endif /* DEBUG */
 
     if (0 != z)
     {
-      /* order * P = 0, or n is composite
-       */
-      z = ec_times(xt, yt, x0, y0, 1, tmp, n, a);
+      is_prime = 0;
+      break;
+    }
 
-#ifdef DEBUG
-      gmp_fprintf(stderr, "\t|E| * P = (%Zd,%Zd,%d)\n", xt, yt, z);
-#endif /* DEBUG */
-
-      if (0 != z)
-      {
-        is_prime = 0;
-        break;
-      }
-
-      /* at this point, order/2 being a prime implies n is a prime --
-       * a recursive call to ecpp_test is used to test order/2 for primality
-       */
-      mpz_div_ui(tmp, tmp, 2);
-      if (ecpp_test(mpz_get_ui(tmp)))
-      {
-        is_prime = 1;
-        break;
-      }
+    /* at this point, order/2 being a prime implies n is a prime --
+     * a recursive call to ecpp_test is used to test order/2 for primality
+     */
+    mpz_div_ui(tmp, tmp, 2);
+    if (ecpp_test(mpz_get_ui(tmp)))
+    {
+      is_prime = 1;
+      break;
     }
   }
 
