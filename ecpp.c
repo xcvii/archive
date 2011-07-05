@@ -90,7 +90,8 @@ int ecpp_test(unsigned long n)
       mpz_mod_ui(b, b, n);
 
 #ifdef DEBUG
-      gmp_fprintf(stderr, "\n\tE: y^2 = x^3 + %Zd * x + %Zd\n", a, b);
+      gmp_fprintf(stderr, "\n\tn = %d\n", n);
+      gmp_fprintf(stderr, "\tE: y^2 = x^3 + %Zd * x + %Zd\n", a, b);
       gmp_fprintf(stderr, "\tP = (%Zd,%Zd,1)\n", x0, y0);
 #endif /* DEBUG */
 
@@ -105,14 +106,13 @@ int ecpp_test(unsigned long n)
 
 #ifdef DEBUG
       mpz_mod_ui(tmp, tmp, n);
-      gmp_fprintf(stderr, "\tdelta(E/GF(%d)) = 4*a^3 + 27*b^2 = %Zd\n",
-          n, tmp);
+      gmp_fprintf(stderr, "\tdelta(E/GF(n)) = %Zd\n", tmp);
 #endif /* DEBUG */
 
       mpz_gcd_ui(tmp, tmp, n);
 
 #ifdef DEBUG
-      gmp_fprintf(stderr, "\tgcd(delta, %d) = %Zd\n", n, tmp);
+      gmp_fprintf(stderr, "\tgcd(delta, n) = %Zd\n", tmp);
 #endif /* DEBUG */
 
       if (0 == mpz_cmp_ui(tmp, 1))
@@ -121,6 +121,9 @@ int ecpp_test(unsigned long n)
       }
       else if (0 != mpz_cmp_ui(tmp, n))
       {
+#ifdef DEBUG
+        gmp_fprintf(stderr, "\tfound a proper factor, %d is composite\n", n);
+#endif /* DEBUG */
         is_prime = 0;
         goto cleanup_and_return;
       }
@@ -153,7 +156,7 @@ int ecpp_test(unsigned long n)
     }
 
 #ifdef DEBUG
-    gmp_fprintf(stderr, "\t|E/GF(%d)| = %Zd\n", n, tmp);
+    gmp_fprintf(stderr, "\t|E/GF(n)| = %Zd\n", tmp);
 #endif /* DEBUG */
 
     /* the curve order should be the multiple of 2 and a "probable prime" n --
@@ -161,6 +164,9 @@ int ecpp_test(unsigned long n)
      */
     if (!mpz_even_p(tmp))
     {
+#ifdef DEBUG
+      gmp_fprintf(stderr, "\t|E/GF(n)| is odd, generating new curve...\n");
+#endif /* DEBUG */
       continue;
     }
 
@@ -174,6 +180,9 @@ int ecpp_test(unsigned long n)
 
     if (0 != z)
     {
+#ifdef DEBUG
+      gmp_fprintf(stderr, "\t|E| * P is non-zero, %d is composite\n", n);
+#endif /* DEBUG */
       is_prime = 0;
       break;
     }
@@ -420,9 +429,8 @@ static int ec_add(mpz_t xr, mpz_t yr, mpz_t x1, mpz_t y1, int z1,
 static int ec_times(mpz_t xr, mpz_t yr, mpz_t x, mpz_t y, int z, mpz_t factor,
     unsigned long n, mpz_t a)
 {
-  /* multiply a point of an elliptic curve by a scalar with an efficient
-   * algorithm that uses point addition and a decomposition of the scalar to
-   * the sum of powers of two
+  /* multiply a point of an elliptic curve by a scalar using a non-memoising
+   * "Egyptian multiplication".
    */
   int sign;
   mpz_t x1, y1,
@@ -452,7 +460,7 @@ static int ec_times(mpz_t xr, mpz_t yr, mpz_t x, mpz_t y, int z, mpz_t factor,
       mpz_set(x1, x);
       mpz_set(y1, y);
 
-      for (pow = 0; mpz_cmp_ui(k, (2 << pow)) >= 0; ++pow)
+      for (pow = 0; mpz_cmp_ui(k, 2 << pow) >= 0; ++pow)
       {
         z1 = ec_add(x1, y1, x1, y1, z1, x1, y1, z1, n, a);
       }
