@@ -17,12 +17,13 @@ defaultTabulateConfig = MkTabulateConfig
 type Tabulate = Reader TabulateConfig
 
 tabulate :: TabulateConfig -> Csv -> String
-tabulate = undefined
+tabulate config csv = flip runReader config $ do
+  undefined
 
-columnWidths :: Csv -> Tabulate [Int]
-columnWidths csv = do
-  minWidth <- ask >>= return . minColumnWidth
-  return . foldl (zipWith max) (repeat minWidth) . (map $ map length) $ csv
+--columnWidths :: Csv -> Tabulate [Int]
+--columnWidths csv = do
+--  minWidth <- ask >>= return . minColumnWidth
+--  return . foldl (zipWith max) (repeat minWidth) . (map $ map length) $ csvCells csv
 
 alignCell :: String -> Int -> Int -> Tabulate String
 alignCell cell width index = do
