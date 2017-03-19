@@ -1,0 +1,14 @@
+Apple Pickers is a (non-interactive) simulation that aims to answer the
+question of what would happen if Sir Isaac Newton, Wilhelm Tell, Snow White and
+Eve, Mother of all Living met in the same apple orchard.
+
+It is written as a school assignment for a component-based development
+course.  Technologies used are Qt Quick and C++ for the server and graphical
+front-end; Haskell for the clients and XML over TCP for communication.
+
+Update:
+Although never finished, this assignment is already presented and I don't
+intend to work on it any further. Also, this isn't a nice piece of software, it
+contains several pretty nasty hacks, so I don't recommend using it for any
+purpose (; I'm only keeping it for its novelty value.
+
