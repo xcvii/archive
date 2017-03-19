@@ -1,0 +1,19 @@
+Goldwasser-Kilian elliptic curve primality proving algorithm
+------------------------------------------------------------
+
+This is an implementation of the Goldwasser-Kilian ECPP algorithm written as an
+assignment for an algebraic geometry course.  The implementation currently is
+not very efficient due to a major and a minor bottleneck:
+
+* To compute the order of an elliptic curve, I'm currently using the naive
+  approach which involves iterating over the elements of the field over which
+  the curve is given.  The correct way would be to implement Schoof's algorithm
+  which can very efficiently produce the order, but this algorithm is much more
+  complicated in itself than the rest of the ECPP.
+
+* I'm not using any probabilistic primality testing techniques to optimise away
+  the testing of very efficiently provably composite numbers.  (In fact the
+  algorithm will sometimes go as far as testing /even/ numbers).  This,
+  however, doesn't add nearly as much overhead as the order finding algorithm,
+  so I don't think it has a priority.
+
